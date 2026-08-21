@@ -66,7 +66,7 @@ function WorkspaceDropdown() {
                         <p className="text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wider mb-2 px-2">
                             Workspaces
                         </p>
-                        {userMemberships.data.map(({ organization }) => (
+                        {(userMemberships?.data || []).map(({ organization }) => (
                             <div key={organization.id} onClick={() => onSelectWorkspace(organization.id)} className="flex items-center gap-3 p-2 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-zinc-800" >
                                 <img src={organization.imageUrl} alt={organization.name} className="w-6 h-6 rounded" />
                                 <div className="flex-1 min-w-0">
