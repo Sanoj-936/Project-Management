@@ -8,6 +8,9 @@ pnpm-debug.log*
 
 # Environment / Secrets
 .env
+.env.local
+.env.development
+.env.production
 .env.*
 !.env.example
 
@@ -34,3 +37,4 @@ coverage/
 # Prisma local SQLite files
 **/prisma/*.db
 **/prisma/*.db-journal
+
