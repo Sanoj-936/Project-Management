@@ -1,16 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { XIcon } from "lucide-react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import { useDispatch, useSelector } from "react-redux";
 import { addProject } from "../features/workspaceSlice";
 import toast from "react-hot-toast";
 import api from "../configs/api";
 
 const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
-
     const dispatch = useDispatch();
     const { getToken } = useAuth();
-    const { currentWorkspace } = useSelector((state) => state.workspace);
+    const { user } = useUser();
+    const { currentWorkspace, workspaces } = useSelector((state) => state.workspace);
+
+    const activeWorkspace = currentWorkspace || (workspaces && workspaces[0]) || null;
+    const userEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
+
+    // Build list of available members from workspace and fallback to authenticated user
+    const workspaceMembers = (activeWorkspace?.members || [])
+        .map((m) => ({
+            email: m.user?.email || m.userId,
+            name: m.user?.name || m.user?.email || m.userId,
+            id: m.user?.id || m.userId,
+        }))
+        .filter((m) => Boolean(m.email));
+
+    const availableMembers = [...workspaceMembers];
+    if (userEmail && !availableMembers.some((m) => m.email === userEmail)) {
+        availableMembers.unshift({
+            email: userEmail,
+            name: user?.fullName ? `${user.fullName} (You)` : `${userEmail} (You)`,
+            id: user?.id,
+        });
+    }
 
     const [formData, setFormData] = useState({
         name: "",
@@ -26,14 +47,24 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Auto-select initial team lead if none selected
+    useEffect(() => {
+        if (isDialogOpen && !formData.team_lead && availableMembers.length > 0) {
+            setFormData((prev) => ({
+                ...prev,
+                team_lead: availableMembers[0].email,
+            }));
+        }
+    }, [isDialogOpen, availableMembers.length]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             if (!formData.name?.trim()) {
                 return toast.error("Please enter a project name");
             }
-            if (!currentWorkspace?.id) {
-                return toast.error("No active workspace selected");
+            if (!activeWorkspace?.id) {
+                return toast.error("No active workspace found. Please select or create a workspace first.");
             }
             if (!formData.team_lead) {
                 return toast.error("Please select a project lead");
@@ -42,7 +73,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
             const token = await getToken();
             const { data } = await api.post(
                 "/api/projects",
-                { workspaceId: currentWorkspace.id, ...formData },
+                { workspaceId: activeWorkspace.id, ...formData },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             dispatch(addProject(data.project));
@@ -68,7 +99,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     };
 
     const removeTeamMember = (email) => {
-        setFormData((prev) => ({ ...prev, team_members: prev.team_members.filter(m => m !== email) }));
+        setFormData((prev) => ({ ...prev, team_members: prev.team_members.filter((m) => m !== email) }));
     };
 
     if (!isDialogOpen) return null;
@@ -81,9 +112,9 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                 </button>
 
                 <h2 className="text-xl font-medium mb-1">Create New Project</h2>
-                {currentWorkspace && (
+                {activeWorkspace && (
                     <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                        In workspace: <span className="text-blue-600 dark:text-blue-400">{currentWorkspace.name}</span>
+                        In workspace: <span className="text-blue-600 dark:text-blue-400">{activeWorkspace.name}</span>
                     </p>
                 )}
 
@@ -138,11 +169,22 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     {/* Lead */}
                     <div>
                         <label className="block text-sm mb-1">Project Lead</label>
-                        <select value={formData.team_lead} onChange={(e) => setFormData({ ...formData, team_lead: e.target.value, team_members: e.target.value ? [...new Set([...formData.team_members, e.target.value])] : formData.team_members, })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" required >
+                        <select
+                            value={formData.team_lead}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    team_lead: e.target.value,
+                                    team_members: e.target.value ? [...new Set([...formData.team_members, e.target.value])] : formData.team_members,
+                                })
+                            }
+                            className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm"
+                            required
+                        >
                             <option value="">Select a project lead</option>
-                            {currentWorkspace?.members?.map((member) => (
-                                <option key={member.user?.email || member.userId} value={member.user?.email || member.userId}>
-                                    {member.user?.name ? `${member.user.name} (${member.user?.email || member.userId})` : (member.user?.email || member.userId)}
+                            {availableMembers.map((member) => (
+                                <option key={member.email} value={member.email}>
+                                    {member.name}
                                 </option>
                             ))}
                         </select>
@@ -151,7 +193,9 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     {/* Team Members */}
                     <div>
                         <label className="block text-sm mb-1">Team Members</label>
-                        <select className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm"
+                        <select
+                            className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm"
+                            value=""
                             onChange={(e) => {
                                 if (e.target.value && !formData.team_members.includes(e.target.value)) {
                                     setFormData((prev) => ({ ...prev, team_members: [...prev.team_members, e.target.value] }));
@@ -159,25 +203,29 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                             }}
                         >
                             <option value="">Add team members</option>
-                            {currentWorkspace?.members
-                                ?.filter((member) => member.user?.email && !formData.team_members.includes(member.user.email))
+                            {availableMembers
+                                .filter((member) => !formData.team_members.includes(member.email))
                                 .map((member) => (
-                                    <option key={member.user.email} value={member.user.email}>
-                                        {member.user?.name ? `${member.user.name} (${member.user.email})` : member.user.email}
+                                    <option key={member.email} value={member.email}>
+                                        {member.name}
                                     </option>
                                 ))}
                         </select>
 
                         {formData.team_members.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
-                                {formData.team_members.map((email) => (
-                                    <div key={email} className="flex items-center gap-1 bg-blue-200/50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-md text-sm" >
-                                        {email}
-                                        <button type="button" onClick={() => removeTeamMember(email)} className="ml-1 hover:bg-blue-300/30 dark:hover:bg-blue-500/30 rounded" >
-                                            <XIcon className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ))}
+                                {formData.team_members.map((email) => {
+                                    const memberObj = availableMembers.find((m) => m.email === email);
+                                    const displayName = memberObj ? memberObj.name : email;
+                                    return (
+                                        <div key={email} className="flex items-center gap-1 bg-blue-200/50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-md text-sm" >
+                                            {displayName}
+                                            <button type="button" onClick={() => removeTeamMember(email)} className="ml-1 hover:bg-blue-300/30 dark:hover:bg-blue-500/30 rounded" >
+                                                <XIcon className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -187,7 +235,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         <button type="button" onClick={() => setIsDialogOpen(false)} className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800" >
                             Cancel
                         </button>
-                        <button type="submit" disabled={isSubmitting || !currentWorkspace} className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200 disabled:opacity-50" >
+                        <button type="submit" disabled={isSubmitting || !activeWorkspace} className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200 disabled:opacity-50" >
                             {isSubmitting ? "Creating..." : "Create Project"}
                         </button>
                     </div>
