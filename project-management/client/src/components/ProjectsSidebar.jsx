@@ -8,9 +8,10 @@ const ProjectSidebar = () => {
     const [expandedProjects, setExpandedProjects] = useState(new Set());
     const [searchParams] = useSearchParams();
 
-    const projects = useSelector(
-        (state) => state?.workspace?.currentWorkspace?.projects || []
+    const currentProjects = useSelector(
+        (state) => state.workspace.currentWorkspace?.projects
     );
+    const projects = currentProjects || [];
 
     const getProjectSubItems = (projectId) => [
         { title: 'Tasks', icon: KanbanIcon, url: `/projectsDetail?id=${projectId}&tab=tasks` },

@@ -1,10 +1,13 @@
 import prisma from "../configs/prisma.js";
 
-// Get all workspaces for user
 export const getUserWorkspaces = async (req, res) => {
     try {
-
         const { userId } = await req.auth();
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const workspaces = await prisma.workspace.findMany({
             where: {
                 members: { some: { userId: userId } }
@@ -20,9 +23,9 @@ export const getUserWorkspaces = async (req, res) => {
                 owner: true
             }
         });
-        res.json({ workspaces });
+        return res.json({ workspaces });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.code || error.message });
+        console.error("Error in getUserWorkspaces:", error);
+        return res.status(500).json({ message: error.message || "Failed to fetch workspaces" });
     }
 };

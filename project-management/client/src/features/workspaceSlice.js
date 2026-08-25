@@ -50,11 +50,30 @@ const workspaceSlice = createSlice({
             state.workspaces = state.workspaces.filter((w) => w._id !== action.payload);
         },
         addProject: (state, action) => {
-            state.currentWorkspace.projects.push(action.payload);
-            // find workspace by id and add project to it
-            state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? { ...w, projects: w.projects.concat(action.payload) } : w
-            );
+            const newProject = action.payload;
+            if (!newProject) return;
+
+            if (state.currentWorkspace) {
+                if (!Array.isArray(state.currentWorkspace.projects)) {
+                    state.currentWorkspace.projects = [];
+                }
+                const exists = state.currentWorkspace.projects.some(p => p.id === newProject.id);
+                if (!exists) {
+                    state.currentWorkspace.projects.push(newProject);
+                }
+            }
+
+            state.workspaces = state.workspaces.map((w) => {
+                if (w.id === newProject.workspaceId || w.id === state.currentWorkspace?.id) {
+                    const projects = Array.isArray(w.projects) ? w.projects : [];
+                    const exists = projects.some(p => p.id === newProject.id);
+                    return {
+                        ...w,
+                        projects: exists ? projects : [...projects, newProject],
+                    };
+                }
+                return w;
+            });
         },
         addTask: (state, action) => {
 

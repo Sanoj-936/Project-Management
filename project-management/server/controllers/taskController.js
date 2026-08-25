@@ -52,8 +52,8 @@ export const createTask = async (req, res) => {
 
         res.json({ task: taskWithAssignee, message: "Task created successfully" });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.code || error.message });
+        console.error("Error in createTask:", error);
+        res.status(500).json({ message: error.message || "Failed to create task" });
     }
 };
 
@@ -90,8 +90,8 @@ export const updateTask = async (req, res) => {
 
         res.json({ message: "Task updated successfully", task: updatedTask });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.code || error.message });
+        console.error("Error in updateTask:", error);
+        res.status(500).json({ message: error.message || "Failed to update task" });
     }
 };
 
@@ -127,7 +127,7 @@ export const deleteTask = async (req, res) => {
 
         res.json({ message: "Task deleted successfully" });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.code || error.message });
+        console.error("Error in deleteTask:", error);
+        res.status(500).json({ message: error.message || "Failed to delete task" });
     }
 };

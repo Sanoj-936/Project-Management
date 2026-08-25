@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 
 export default function StatsGrid() {
     const currentWorkspace = useSelector(
-        (state) => state?.workspace?.currentWorkspace || null
+        (state) => state.workspace.currentWorkspace
     );
 
     const [stats, setStats] = useState({

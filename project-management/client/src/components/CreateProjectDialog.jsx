@@ -29,15 +29,39 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            if (!formData.name?.trim()) {
+                return toast.error("Please enter a project name");
+            }
+            if (!currentWorkspace?.id) {
+                return toast.error("No active workspace selected");
+            }
             if (!formData.team_lead) {
-                return toast.error("Please select a team lead");
+                return toast.error("Please select a project lead");
             }
             setIsSubmitting(true);
-            const { data } = await api.post("/api/projects", { workspaceId: currentWorkspace.id, ...formData }, { headers: { Authorization: `Bearer ${await getToken()}` } });
+            const token = await getToken();
+            const { data } = await api.post(
+                "/api/projects",
+                { workspaceId: currentWorkspace.id, ...formData },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             dispatch(addProject(data.project));
+            toast.success(data.message || "Project created successfully!");
             setIsDialogOpen(false);
+            setFormData({
+                name: "",
+                description: "",
+                status: "PLANNING",
+                priority: "MEDIUM",
+                start_date: "",
+                end_date: "",
+                team_members: [],
+                team_lead: "",
+                progress: 0,
+            });
         } catch (error) {
-            toast.error(error?.response?.data?.message || error.message);
+            console.error("Project creation error:", error);
+            toast.error(error?.response?.data?.message || error.message || "Failed to create project");
         } finally {
             setIsSubmitting(false);
         }
@@ -114,11 +138,11 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                     {/* Lead */}
                     <div>
                         <label className="block text-sm mb-1">Project Lead</label>
-                        <select value={formData.team_lead} onChange={(e) => setFormData({ ...formData, team_lead: e.target.value, team_members: e.target.value ? [...new Set([...formData.team_members, e.target.value])] : formData.team_members, })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" >
-                            <option value="">No lead</option>
+                        <select value={formData.team_lead} onChange={(e) => setFormData({ ...formData, team_lead: e.target.value, team_members: e.target.value ? [...new Set([...formData.team_members, e.target.value])] : formData.team_members, })} className="w-full px-3 py-2 rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 mt-1 text-zinc-900 dark:text-zinc-200 text-sm" required >
+                            <option value="">Select a project lead</option>
                             {currentWorkspace?.members?.map((member) => (
-                                <option key={member.user.email} value={member.user.email}>
-                                    {member.user.email}
+                                <option key={member.user?.email || member.userId} value={member.user?.email || member.userId}>
+                                    {member.user?.name ? `${member.user.name} (${member.user?.email || member.userId})` : (member.user?.email || member.userId)}
                                 </option>
                             ))}
                         </select>
@@ -136,10 +160,10 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         >
                             <option value="">Add team members</option>
                             {currentWorkspace?.members
-                                ?.filter((email) => !formData.team_members.includes(email))
+                                ?.filter((member) => member.user?.email && !formData.team_members.includes(member.user.email))
                                 .map((member) => (
-                                    <option key={member.user.email} value={member.email}>
-                                        {member.user.email}
+                                    <option key={member.user.email} value={member.user.email}>
+                                        {member.user?.name ? `${member.user.name} (${member.user.email})` : member.user.email}
                                     </option>
                                 ))}
                         </select>
@@ -163,7 +187,7 @@ const CreateProjectDialog = ({ isDialogOpen, setIsDialogOpen }) => {
                         <button type="button" onClick={() => setIsDialogOpen(false)} className="px-4 py-2 rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800" >
                             Cancel
                         </button>
-                        <button disabled={isSubmitting || !currentWorkspace} className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200" >
+                        <button type="submit" disabled={isSubmitting || !currentWorkspace} className="px-4 py-2 rounded bg-gradient-to-br from-blue-500 to-blue-600 text-white dark:text-zinc-200 disabled:opacity-50" >
                             {isSubmitting ? "Creating..." : "Create Project"}
                         </button>
                     </div>

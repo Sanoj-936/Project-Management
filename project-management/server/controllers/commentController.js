@@ -26,10 +26,10 @@ export const addComment = async (req, res) => {
 
         const comment = await prisma.comment.create({ data: { taskId, content, userId }, include: { user: true } });
         
-        res.json({comment});
+        res.status(201).json({ comment, message: "Comment added successfully" });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.code || error.message });
+        console.error("Error in addComment:", error);
+        res.status(500).json({ message: error.message || "Failed to add comment" });
     }
 };
 
@@ -40,7 +40,7 @@ export const getTaskComments = async (req, res) => {
         const comments = await prisma.comment.findMany({ where: { taskId }, include: { user: true } });
         res.json({ comments });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.code || error.message });
+        console.error("Error in getTaskComments:", error);
+        res.status(500).json({ message: error.message || "Failed to fetch comments" });
     }
 };

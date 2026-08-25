@@ -15,7 +15,10 @@ export default function ProjectDetail() {
     const id = searchParams.get('id');
 
     const navigate = useNavigate();
-    const projects = useSelector((state) => state?.workspace?.currentWorkspace?.projects || []);
+    const currentProjects = useSelector(
+        (state) => state.workspace.currentWorkspace?.projects
+    );
+    const projects = currentProjects || [];
 
     const [project, setProject] = useState(null);
     const [tasks, setTasks] = useState([]);
